@@ -1,34 +1,37 @@
-pipeline {
 
+node {
+    def app
 
-    agent {
-        dockerfile true
+    stage('Clone repository') {
+        /* Let's make sure we have the repository cloned to our workspace */
+
+        checkout scm
     }
 
-    stages {
+    stage('Build image') {
 
-    	stage('Build') {
-    		steps {
-				def customImage = docker.build('infrastructurepoc/cat-service:${env.BUILD_ID}')
-				customImage.inside {
-					sh 'echo '
-				}
-				customImage.push()
-    		}
-    	}
-        stage('Test') {
-            steps {
-                echo 'Testing..'
-                sh 'python3 --version'
-                slackSend "Test finished - ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
-            }
-        }
-        stage('Deploy') {
-            steps {
-                echo 'Deploying....'
-                sh 'python3 --version'
-                slackSend "Deploy finished - ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
-            }
+		app = docker.build("infrastructurepoc/cat-service")
+    }
+
+    stage('Test image') {
+        /* Ideally, we would run a test framework against our image.
+         * For this example, we're using a Volkswagen-type approach ;-) */
+
+		app.inside {
+			echo 'Testing..'
+			sh 'python3 --version'
+		}
+		slackSend "Test finished - ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
+    }
+
+    stage('Push image') {
+        /* Finally, we'll push the image with two tags:
+         * First, the incremental build number from Jenkins
+         * Second, the 'latest' tag.
+         * Pushing multiple tags is cheap, as all the layers are reused. */
+        docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
+            app.push("${env.BUILD_NUMBER}")
+            app.push("latest")
         }
     }
 }

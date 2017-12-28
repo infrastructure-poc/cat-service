@@ -1,9 +1,21 @@
 pipeline {
+
+
     agent {
         dockerfile true
     }
 
     stages {
+
+    	stage('Build') {
+    		steps {
+				def customImage = docker.build('infrastructurepoc/cat-service:${env.BUILD_ID}')
+				customImage.inside {
+					sh 'echo '
+				}
+				customImage.push()
+    		}
+    	}
         stage('Test') {
             steps {
                 echo 'Testing..'
